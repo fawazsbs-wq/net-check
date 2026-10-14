@@ -78,7 +78,8 @@
     try { localStorage.setItem("sc_runs", String(runNo)); } catch (e) {}
     var c = navigator.connection || {};
     var payload = {
-      run_group: runGroup, run_no: runNo, net_type: c.effectiveType || c.type || null,
+      run_group: runGroup, run_no: runNo,
+      net_type: ([c.type, c.effectiveType].filter(Boolean).join("/")) || null,
       tz: (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (e) { return null; } })(),
       lang: navigator.language || null,
       results: last.map(function (r) { return { id: r.id, name: r.name, ms: r.ms }; })
