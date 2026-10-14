@@ -82,7 +82,7 @@
       net_type: ([c.type, c.effectiveType].filter(Boolean).join("/")) || null,
       tz: (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (e) { return null; } })(),
       lang: navigator.language || null,
-      results: last.map(function (r) { return { id: r.id, name: r.name, ms: r.ms }; })
+      results: last.map(function (r) { return { id: r.id, name: r.name, ms: r.ms, cold: r.cold, samples: r.samples }; })
     };
     savedEl.textContent = "جارٍ تسجيل النتيجة…";
     fetch(REPORT_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
@@ -100,18 +100,19 @@
 
   async function measure(region) {
     var url = "https://dynamodb." + region.id + ".amazonaws.com/ping";
-    try { await ping(url); } catch (e) { return null; }          // اتصال أول (يشمل TLS) يُهمَل
+    var cold = null;
+    try { cold = Math.round(await ping(url)); } catch (e) { return { ms: null, cold: null, samples: [] }; }   // الاتصال الأول (يشمل TLS) لا يدخل الوسيط لكنه يُسجَّل
     var xs = [];
-    for (var i = 0; i < SAMPLES; i++) { try { xs.push(await ping(url)); } catch (e) {} }
-    return xs.length ? Math.round(median(xs)) : null;
+    for (var i = 0; i < SAMPLES; i++) { try { xs.push(Math.round(await ping(url))); } catch (e) {} }
+    return { ms: xs.length ? Math.round(median(xs)) : null, cold: cold, samples: xs };
   }
 
   go.addEventListener("click", async function () {
     go.disabled = true; resultEl.hidden = true; last = [];
     for (var i = 0; i < REGIONS.length; i++) {
       statusEl.textContent = "جارٍ قياس: " + REGIONS[i].name + " (" + (i + 1) + "/" + REGIONS.length + ")";
-      var ms = await measure(REGIONS[i]);
-      last.push({ id: REGIONS[i].id, name: REGIONS[i].name, sub: REGIONS[i].sub, ms: ms });
+      var m = await measure(REGIONS[i]);
+      last.push({ id: REGIONS[i].id, name: REGIONS[i].name, sub: REGIONS[i].sub, ms: m.ms, cold: m.cold, samples: m.samples });
     }
     render();
     report();
